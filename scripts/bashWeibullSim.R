@@ -9,7 +9,7 @@ i=as.numeric(commandArgs(TRUE)[1])
 seedVal=as.numeric(commandArgs(TRUE)[2])
 set.seed(seedVal)
 ## Now declare output file
-out.file <- paste("./data/individualSims/rowVal_", i, "_seedVal_", seedVal, ".csv")
+out.file <- paste("./data/individualSims/rowVal_", i, "_seedVal_", seedVal, ".csv", sep='')
 if(!file.exists(out.file)){
   
   ## Load library(s)
@@ -18,13 +18,13 @@ if(!file.exists(out.file)){
   source("./scripts/weiFuncs.R")
   
   ## Now declare all of the simulation components
-  n <- c(10, 50, 100)
-  minObsAll <- c(20, 40, 80)
-  maxObsAll <- c(90, 140, 180)
-  n.states <- c(2,3,4)
-  matrixType <- c("stable", "mod", "rand")
-  scaleVals <- c("2:6", "4:8")
-  shapeVals <- c(1.6, 2.2)
+  n <- c(10, 100)
+  minObsAll <- c(20, 80)
+  maxObsAll <- c(90, 180)
+  n.states <- c(3,4)
+  matrixType <- c("mod", "rand")
+  scaleVals <- c("2:7", "5:10")
+  shapeVals <- c(1.6, 2.7)
   all.parms <- expand.grid(n, minObsAll, maxObsAll, n.states, matrixType, scaleVals, shapeVals)
   rand.var.int <- c(.05, .1)
   rand.var.slope <- c(.01, .05)
