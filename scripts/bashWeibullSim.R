@@ -6,8 +6,17 @@
 
 ## First idenitfy the row of the simulation we want to run
 i=as.numeric(commandArgs(TRUE)[1])
-seedVal=as.numeric(commandArgs(TRUE)[2])
-set.seed(seedVal)
+n <- c(10, 100)
+minObsAll <- c(20, 80)
+maxObsAll <- c(90, 180)
+n.states <- c(3,4)
+matrixType <- c("mod", "rand")
+scaleVals <- c("2:7", "5:10")
+shapeVals <- c(1.6, 2.7)
+iter.vals <- 1:75
+all.parms <- expand.grid(n, minObsAll, maxObsAll, n.states, matrixType, scaleVals, shapeVals, iter.vals)
+seedVal <- all.parms[i,8]
+set.seed(all.parms[i,8])
 ## Now declare output file
 out.file <- paste("./data/individualSims/rowVal_", i, "_seedVal_", seedVal, ".csv", sep='')
 if(!file.exists(out.file)){
@@ -18,14 +27,6 @@ if(!file.exists(out.file)){
   source("./scripts/weiFuncs.R")
   
   ## Now declare all of the simulation components
-  n <- c(10, 100)
-  minObsAll <- c(20, 80)
-  maxObsAll <- c(90, 180)
-  n.states <- c(3,4)
-  matrixType <- c("mod", "rand")
-  scaleVals <- c("2:7", "5:10")
-  shapeVals <- c(1.6, 2.7)
-  all.parms <- expand.grid(n, minObsAll, maxObsAll, n.states, matrixType, scaleVals, shapeVals)
   rand.var.int <- c(.05, .1)
   rand.var.slope <- c(.01, .05)
   ## Now go ahead and loop through all of these params real quick
@@ -96,7 +97,12 @@ if(!file.exists(out.file)){
     }
     all.out <- rbind(all.out, out2)
   }
-  
+  ## Now attach the real values
+  real.vals <- tmp.dat$transVals
+  real.vals$transType <- paste("transType", real.vals$Var1, real.vals$Var2, sep='')
+  real.vals$transType[real.vals$transType=="transType11"] <- "Intercept"
+  real.vals <- real.vals[,c("transType", "scale")]
+  all.out <- merge(all.out, real.vals, by=c("transType"), all.x=TRUE, suffixes = c("", "_True"))
   ## Now write all.out
   write.csv(all.out, file = out.file, quote = FALSE, row.names = FALSE)
 }else{
