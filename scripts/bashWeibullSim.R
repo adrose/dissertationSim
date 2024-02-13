@@ -6,6 +6,7 @@
 
 ## First idenitfy the row of the simulation we want to run
 i=as.numeric(commandArgs(TRUE)[1])
+subVal <- as.numeric(commandArgs(TRUE)[2])
 n <- c(10, 100)
 minObsAll <- c(20, 80)
 maxObsAll <- c(90, 180)
@@ -14,6 +15,9 @@ matrixType <- c("mod", "rand")
 scaleVals <- c("2:7", "5:10")
 shapeVals <- c(1.6, 2.7)
 iter.vals <- 1:75
+if(!is.null(subVal)){
+  i <- i + subVal*1000
+}
 all.parms <- expand.grid(n, minObsAll, maxObsAll, n.states, matrixType, scaleVals, shapeVals, iter.vals)
 seedVal <- all.parms[i,8]
 set.seed(all.parms[i,8])
