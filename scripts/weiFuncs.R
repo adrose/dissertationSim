@@ -1,4 +1,4 @@
-### Quick script to understand the hazard function of the weibull distirbution
+### Quick script to understand the hazard function of the weibull distribution
 
 ## I will need to define several functions -- perhaps all will just
 ## call the built in weibull distribution tools
@@ -33,11 +33,6 @@ estSurvivialFunc <- function(time = 1, scale.val = 1, shape.val = 1){
   return(survVal)
 }
 
-estSurvivialFunc2 <- function(time = 1, scale.val = 1, shape.val = 1){
-  survVal <- 1 - 
-    return(survVal)
-}
-
 
 estIntent <- function(time =1, scale.val = 1, shape.val = 1, trans.prob = .5){
   ## The output of this function should be the transition intensity for
@@ -57,7 +52,8 @@ allParam <- function(brmsMod, timeVal=1){
   ## 1. discrete transition patterns
   ## 2. transition intensity @ time(t)
   ## 3. probability of transition at time(t)
-  ## 4. model parameters
+  ## 4. Static probability transition matrix (integrate out t)
+  ## 5. model parameters
   
   
   ### Begin by identifying the transition values
@@ -79,8 +75,8 @@ allParam <- function(brmsMod, timeVal=1){
   tmp.dat <- model.matrix(timeIn ~ 1 + transType, data = tmp.dat)
   ## now multiply these with the fixef from the model
   scale.vals <- tmp.dat %*% fixef(brmsMod)[,1]
-  scale.vals <- exp(scale.vals) / gamma(1 + 1/scale.vals)
-  scale.vals <- matrix(scale.vals, nrow=nstate, ncol=nstate)
+  scale.vals <- exp(scale.vals) #/ gamma(1 + 1/scale.vals)
+  scale.vals <- matrix(scale.vals, nrow=n.state, ncol=n.state)
   shape.val <- summary(brmsMod)$spec_pars[,1]
   
   ## Now work on output #2
@@ -88,7 +84,7 @@ allParam <- function(brmsMod, timeVal=1){
   for(i in 1:n.state){ ## row
     for(j in 1:n.state){ ## col
       new.scale.val <- trans.matP[i,j]^(-1/shape.val) * scale.vals[i,j]
-      int.mat[i,j] <- hazardWei(time = timeVal, shape = shape.val, scale = new.scale.val)
+      int.mat[i,j] <- trans.matP[i,j]*hazardWei(time = timeVal, shape = shape.val, scale = scale.vals[i,j])
     }
   }
   diag(int.mat) <- -1 * rowSums(int.mat, na.rm = TRUE)
@@ -117,9 +113,25 @@ allParam <- function(brmsMod, timeVal=1){
       }
     }
   }
+  ## Now work on static transition rates
+  ######## WORK ON THIS SECTION
+  # It is formula 23 from the Estimation of semi-Markov multi-state models manuscript
+  stat.trans <- matrix(0, nrow=n.state, ncol=n.state)
+  for(i in 1:n.state){
+    for(j in 1:n.state){
+      if(i !=j ){
+        col.index <- 1:ncol(stat.trans)
+        col.index <- col.index[-i]
+        denom.val <- sum(scale.vals[i,col.index]^shape.val)
+        stat.trans[i,j] <- (scale.vals[i,j]^shape.val) / denom.val
+      }
+    }
+  }
+  
   ## Now return all of these values
   all.out <- list(weibullScales = scale.vals, weibullShape = shape.val,
-                  transInt = int.mat, probMat = p.mat, observedTransWO = trans.matP)
+                  transInt = int.mat, probMat = p.mat, observedTransWO = trans.matP, 
+                  estimatedTrans = stat.trans)
   return(all.out)
 }
 
@@ -265,7 +277,7 @@ simFunc <- function(n=10,minObs=20, maxObs=90, nState=3,
   shape.val <- shapeVal
   scaleMin <- as.numeric(strSplitMatrixReturn(charactersToSplit = scaleRange, ":")[,1])
   scaleMax <- as.numeric(strSplitMatrixReturn(charactersToSplit = scaleRange, ":")[,2])
-  scale.val <- runif(nrow(ntrans), min = scaleMin, max = scaleMax)
+  scale.val <- runif(nState, min = scaleMin, max = scaleMax)
   ntrans$shape <- shape.val
   ntrans$scale <- scale.val
   samp.dat <- merge(samp.dat, ntrans, by=c("transType"))
