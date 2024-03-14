@@ -21,10 +21,18 @@ survWei <- function(time, shape, scale){
 }
 
 ## Now do the hazard function
+## This is the cumulative hazard 
 hazardWei <- function(time, shape, scale){
   #hazardOut <- shape / scale * (time / scale)^shape - 1
   hazardOut <- -pweibull(q = time, shape = shape, scale = scale, log.p = TRUE, lower.tail = FALSE)
   return(hazardOut)
+}
+
+## Here is the instantaneous hazard
+instHazardWei <- function(time, shape, scale){
+  ## Take the ratio of hazard & surv function
+  outHazardInst <- ifelse(time < 0, 0, shape * (time/scale)^(shape - 1)/scale)
+  return(outHazardInst)
 }
 
 ## First declare some functions
@@ -192,8 +200,8 @@ retMMMat <- function(nstate, matPat = "stable"){
 
 
 ## Now create a function which will return the sampling priors given the fixed effects and 
-## desiered random effect varaince from a weibull model
-retSampPriors <- function(fixEfModel, modShape = 1.6, groupName = "part", ranVarInt = .3, ranVarSlope = 0){
+## desired random effect variance from a weibull model
+retSampPriors <- function(fixEfModel, modShape = 1.6, groupName = "part", ranVarInt = .3, ranVarSlope = 0, addMainEffect=NULL){
   ## First create all of the strings we need
   ## start with the fixed effects
   all.fix.effect.vals <- NULL
@@ -247,7 +255,7 @@ retSampPriors <- function(fixEfModel, modShape = 1.6, groupName = "part", ranVar
 
 ## Now create a function which will run through a set of these params and estimate everything we need
 simFunc <- function(n=10,minObs=20, maxObs=90, nState=3, 
-                    matrixType="stable", scaleRange="2:6", shapeVal=1.6){
+                    matrixType="stable", scaleRange="2:6", shapeVal=1.6, meMag = NULL){
   ## First load all required packages
   source("./scripts/weiFuncs.R")
   ## Now create our data
@@ -255,6 +263,10 @@ simFunc <- function(n=10,minObs=20, maxObs=90, nState=3,
   obsPat <- sample(minObs:maxObs, size = n,replace = TRUE)
   ## Now create a data frame to house all of our variables
   samp.dat <- data.frame(part = rep(1:n, times = obsPat), order = NA,timeIn = NA,stateFrom = NA,stateTo=NA)
+  ## Check for ME value
+  if(!is.null(meMag)){
+    samp.dat$effectOfInt <- rep(rnorm(n), times = obsPat)
+  }
   ## We have to get our discrete MM first
   discreteMMVals <- retMMMat(nstate = nState, matPat = matrixType)
   ## Now go through each participant and estimate their discrete markov matrix
@@ -277,15 +289,21 @@ simFunc <- function(n=10,minObs=20, maxObs=90, nState=3,
   shape.val <- shapeVal
   scaleMin <- as.numeric(strSplitMatrixReturn(charactersToSplit = scaleRange, ":")[,1])
   scaleMax <- as.numeric(strSplitMatrixReturn(charactersToSplit = scaleRange, ":")[,2])
-  scale.val <- runif(nState, min = scaleMin, max = scaleMax)
+  scale.val <- runif(nrow(ntrans), min = scaleMin, max = scaleMax)
   ntrans$shape <- shape.val
   ntrans$scale <- scale.val
   samp.dat <- merge(samp.dat, ntrans, by=c("transType"))
   samp.dat <- samp.dat[order(samp.dat$part, samp.dat$order),]
   ## Now go through each of these and sample our weibull times
-  for(i in 1:nrow(samp.dat)){
-    samp.dat$timeIn[i] <- rweibull(1, shape = samp.dat$shape[i], scale = samp.dat$scale[i])
-  }
+  if(! is.null(meMag)){
+    for(i in 1:nrow(samp.dat)){
+      samp.dat$timeIn[i] <- rweibull(1, shape = samp.dat$shape[i], scale = samp.dat$scale[i]+samp.dat$effectOfInt*meMag)
+    }
+  }else{
+    for(i in 1:nrow(samp.dat)){
+      samp.dat$timeIn[i] <- rweibull(1, shape = samp.dat$shape[i], scale = samp.dat$scale[i])
+    }
+  }  
   ## Now return everything we need
   outList <- list(sampleData = samp.dat, transVals = ntrans)
   return(outList)
