@@ -10,12 +10,12 @@ subVal <- as.numeric(commandArgs(TRUE)[2])
 n <- c(20, 100)
 minObsAll <- c(20, 50)
 maxObsAll <- c(80, 200)
-n.states <- c(3,4)
+n.states <- c(3, 4)
 matrixType <- c("mod", "rand")
-scaleVals <- c("2:8")
-shapeVals <- c(1, 2)
-mainEffectVals <- c(0, .2, .4)
-rand.var <- c(0, 1)
+scaleVals <- c("1:10")
+shapeVals <- c(1, 3)
+mainEffectVals <- c(0,.2,.4)
+rand.var <- c(0,.6,1)
 iter.vals <- 1:300
 if(!is.null(subVal)){
   i <- i + subVal*1000
@@ -55,7 +55,7 @@ if(!file.exists(out.file)){
     ## Get the prior value we need
     priorValue <- log(tmp.dat$transVals$scale[w])
     newString <- tmp.dat$transVals$coefName[w]
-    newPrior <- prior(normal(QRT,.1), class = "b", coef = XYZ)
+    newPrior <- prior(normal(QRT,.3), class = "b", coef = XYZ)
     ## Now change the values to what we need
     newPrior$prior <- gsub(x = newPrior$prior, replacement = priorValue, pattern = "QRT")
     newPrior$coef <- gsub(x = newPrior$coef, replacement = newString, pattern = "XYZ")
@@ -83,7 +83,7 @@ if(!file.exists(out.file)){
   mePrior$prior <- gsub(x = mePrior$prior, replacement = all.parms[i,6], pattern = "QRT")
   priorVar[which(priorVar$class=="shape"),] <- mePrior
   ## Now do the main effect of interest
-  mePrior <- prior(normal(QRT, .1), class = "b", coef = XYZ)
+  mePrior <- prior(constant(QRT), class = "b", coef = XYZ)
   ## Now change the values to what we need
   mePrior$prior <- gsub(x = mePrior$prior, replacement = all.parms[i,7], pattern = "QRT")
   mePrior$coef <- gsub(x = mePrior$coef, pattern = "XYZ", replacement = "effectOfInt")
@@ -92,31 +92,35 @@ if(!file.exists(out.file)){
   ## Now make the four priors we need -- two with frailty terms -- two without
   sampGen <- brm(timeIn ~ -1 + transType + effectOfInt + (-1 + transType|part), data = tmp.dat$sampleData, family = weibull(), 
                  cores=1, prior = priorVar,sample_prior = "only", seed = 16, iter = 10, chains = 1)
-  tmp.data <- predict(sampGen,newdata = tmp.dat$sampleData ,summary=FALSE, ndraws=3)
-  tmp.dat$sampleData$genVals <- tmp.data[1,]
+  tmp.data <- predict(sampGen,newdata = tmp.dat$sampleData ,summary=FALSE, ndraws=4)
+  tmp.dat$sampleData$genVals1 <- tmp.data[1,]
+  tmp.dat$sampleData$genVals2 <- tmp.data[2,]
+  tmp.dat$sampleData$genVals3 <- tmp.data[3,]
+  tmp.dat$sampleData$genVals4 <- tmp.data[4,]
+  
   ## SMM no frailty term
-  mod.est1 <- brm(genVals ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family = weibull(), cores=1,
+  mod.est1 <- brm(genVals1 ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family = weibull(), cores=1,
                   control = list(adapt_delta = 0.9, max_treedepth = 12), iter = 5000, init = 2000, thin = 3, chains = 2)
   all.mods[[mod.count]] <- mod.est1
   mod.count <- mod.count + 1
   ## SMM with frailty term
-  mod.est2 <- brm(genVals ~ -1  + transType + effectOfInt + (1|part), data = tmp.dat$sampleData, family = weibull(), cores=1,
+  mod.est2 <- brm(genVals2 ~ -1  + transType + effectOfInt + (1|part), data = tmp.dat$sampleData, family = weibull(), cores=1,
                   control = list(adapt_delta = 0.9, max_treedepth = 12), iter = 5000, init = 2000, thin = 3, chains = 2)
   all.mods[[mod.count]] <- mod.est2
   mod.count <- mod.count + 1
   ## Now do the markov model terms here
   ## Constrain the prior to be 1 for the shape term
-  priorMMShape <- get_prior(genVals ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family=weibull())
+  priorMMShape <- get_prior(genVals1 ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family=weibull())
   priorMMShape[which(priorMMShape$class=="shape"),"prior"] <- "constant(1)"
   ## Now estimate the model -- again MM without frailty
-  mod.est3 <- brm(genVals ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family = weibull(), 
+  mod.est3 <- brm(genVals3 ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family = weibull(), 
                   cores=1,control = list(adapt_delta = 0.9, max_treedepth = 12), prior = priorMMShape, iter = 5000, init = 2000, thin = 3, chains = 2)
   all.mods[[mod.count]] <- mod.est3
   mod.count <- mod.count + 1
   ## Now do MM with frail
-  priorMMShape <- get_prior(genVals ~ -1  + transType + effectOfInt + (1|part), data = tmp.dat$sampleData, family=weibull())
+  priorMMShape <- get_prior(genVals1 ~ -1  + transType + effectOfInt + (1|part), data = tmp.dat$sampleData, family=weibull())
   priorMMShape[which(priorMMShape$class=="shape"),"prior"] <- "constant(1)"
-  mod.est4 <- brm(genVals ~ -1  + transType + effectOfInt + (1|part) , data = tmp.dat$sampleData, family = weibull(), 
+  mod.est4 <- brm(genVals4 ~ -1  + transType + effectOfInt + (1|part) , data = tmp.dat$sampleData, family = weibull(), 
                   cores=1,control = list(adapt_delta = 0.9, max_treedepth = 12), prior = priorMMShape, iter = 5000, init = 2000, thin = 3, chains = 2)
   all.mods[[mod.count]] <- mod.est4
   mod.count <- mod.count + 1
