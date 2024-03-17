@@ -53,7 +53,7 @@ if(!file.exists(out.file)){
     ## Get the prior value we need
     priorValue <- log(tmp.dat$transVals$scale[w])
     newString <- tmp.dat$transVals$coefName[w]
-    newPrior <- prior(normal(QRT,.4), class = "b", coef = XYZ)
+    newPrior <- prior(normal(QRT,.6), class = "b", coef = XYZ)
     ## Now change the values to what we need
     newPrior$prior <- gsub(x = newPrior$prior, replacement = priorValue, pattern = "QRT")
     newPrior$coef <- gsub(x = newPrior$coef, replacement = newString, pattern = "XYZ")
@@ -81,7 +81,7 @@ if(!file.exists(out.file)){
   mePrior$prior <- gsub(x = mePrior$prior, replacement = all.parms[i,6], pattern = "QRT")
   priorVar[which(priorVar$class=="shape"),] <- mePrior
   ## Now do the main effect of interest
-  mePrior <- prior(normal(QRT, .4), class = "b", coef = XYZ)
+  mePrior <- prior(normal(QRT, .6), class = "b", coef = XYZ)
   ## Now change the values to what we need
   mePrior$prior <- gsub(x = mePrior$prior, replacement = all.parms[i,7], pattern = "QRT")
   mePrior$coef <- gsub(x = mePrior$coef, pattern = "XYZ", replacement = "effectOfInt")
@@ -93,7 +93,7 @@ if(!file.exists(out.file)){
   tmp.data <- predict(sampGen,newdata = tmp.dat$sampleData ,summary=FALSE, ndraws=100)
   tmp.dat$sampleData$genVals <- NA
   ## Now grab some values from each of these
-  for(sampleIndiv in 1:unique(tmp.dat$sampleData$part)){
+  for(sampleIndiv in unique(tmp.dat$sampleData$part)){
     ## grab the index values
     part.count <- which(tmp.dat$sampleData$part==sampleIndiv)
     tmp.dat$sampleData$genVals[part.count] <- tmp.data[sample(1:100, size = 1),part.count]
