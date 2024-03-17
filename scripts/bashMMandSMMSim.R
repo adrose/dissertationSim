@@ -62,7 +62,7 @@ if(!file.exists(out.file)){
   }
   ## Now do the same for the random effect
   for(w in 1:nrow(tmp.dat$transVals)){
-    ## First idenitfy the true value from the simulated data
+    ## First identify the true value from the simulated data
     modIndex <- which(tmp.dat$transVals$coefName[w] == priorVar$coef & priorVar$class=="sd")
     ## Get the prior value we need
     priorValue <- all.parms[i,8]
@@ -81,7 +81,7 @@ if(!file.exists(out.file)){
   mePrior$prior <- gsub(x = mePrior$prior, replacement = all.parms[i,6], pattern = "QRT")
   priorVar[which(priorVar$class=="shape"),] <- mePrior
   ## Now do the main effect of interest
-  mePrior <- prior(normal(QRT, .6), class = "b", coef = XYZ)
+  mePrior <- prior(normal(QRT, .5), class = "b", coef = XYZ)
   ## Now change the values to what we need
   mePrior$prior <- gsub(x = mePrior$prior, replacement = all.parms[i,7], pattern = "QRT")
   mePrior$coef <- gsub(x = mePrior$coef, pattern = "XYZ", replacement = "effectOfInt")
@@ -135,9 +135,9 @@ if(!file.exists(out.file)){
     outFixed$expUpper <- NA
     ## Put these back in the original units
     for(r in 1:nrow(outFixed)){
-      outFixed$expEstimate[r] <- exp(sum(outFixed$Estimate[c(r)]))
-      outFixed$expLower[r] <-   exp(sum(outFixed$l.95..CI[c(r)]))
-      outFixed$expUpper[r] <-   exp(sum(outFixed$u.95..CI[c(r)]))
+      outFixed$expEstimate[r] <- sum(outFixed$Estimate[c(r)])
+      outFixed$expLower[r] <-   sum(outFixed$l.95..CI[c(r)])
+      outFixed$expUpper[r] <-   sum(outFixed$u.95..CI[c(r)])
     }
     ## Now prepare all output
     out2 <- data.frame(transType=c(rownames(outFixed)), paramEst = NA, lowerEst = NA, upperEst = NA,
