@@ -23,7 +23,7 @@ set.seed(all.parms[tmpIndex,9])
 
 for(i in which(all.parms[,9]==seedVal)){
 ## Now declare output file
-out.file <- paste("./data/individualSimsMM_SMM/rowVal_", runVals, "_seedVal_", seedVal, ".csv", sep='')
+out.file <- paste("./data/individualSimsMM_SMM/rowVal_", i, "_seedVal_", seedVal, ".csv", sep='')
 if(!file.exists(out.file)){
   
   ## Load library(s)
@@ -111,7 +111,7 @@ if(!file.exists(out.file)){
   mod.count <- mod.count + 1
   ## Now do the markov model terms here
   ## Constrain the prior to be 1 for the shape term
-  priorMMShape <- get_prior(genVals1 ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family=weibull())
+  priorMMShape <- get_prior(genVals ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family=weibull())
   priorMMShape[which(priorMMShape$class=="shape"),"prior"] <- "constant(1)"
   ## Now estimate the model -- again MM without frailty
   mod.est3 <- brm(genVals ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family = weibull(), 
@@ -119,7 +119,7 @@ if(!file.exists(out.file)){
   all.mods[[mod.count]] <- mod.est3
   mod.count <- mod.count + 1
   ## Now do MM with frail
-  priorMMShape <- get_prior(genVals1 ~ -1  + transType + effectOfInt + (1|part), data = tmp.dat$sampleData, family=weibull())
+  priorMMShape <- get_prior(genVals ~ -1  + transType + effectOfInt + (1|part), data = tmp.dat$sampleData, family=weibull())
   priorMMShape[which(priorMMShape$class=="shape"),"prior"] <- "constant(1)"
   mod.est4 <- brm(genVals ~ -1  + transType + effectOfInt + (1|part) , data = tmp.dat$sampleData, family = weibull(), 
                   cores=1,control = list(adapt_delta = 0.9, max_treedepth = 12), prior = priorMMShape, iter = 5000, init = 2000, thin = 3, chains = 2)
