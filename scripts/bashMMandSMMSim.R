@@ -5,11 +5,10 @@
 ###  `maximal number of DLLs reached...
 
 ## First identify the row of the simulation we want to run
-i=as.numeric(commandArgs(TRUE)[1])
-subVal <- as.numeric(commandArgs(TRUE)[2])
+tmpIndex=as.numeric(commandArgs(TRUE)[1])
 n <- c(20, 100)
-minObsAll <- c(20, 50)
-maxObsAll <- c(80, 200)
+minObsAll <- c(20, 40)
+maxObsAll <- c(40, 200)
 n.states <- c(3, 4)
 matrixType <- c("mod", "rand")
 scaleVals <- c("1:10")
@@ -17,15 +16,14 @@ shapeVals <- c(1, 3)
 mainEffectVals <- c(0,.2,.4)
 rand.var <- c(0,.6,1)
 iter.vals <- 1:300
-if(!is.null(subVal)){
-  i <- i + subVal*1000
-}
 all.parms <- expand.grid(n, minObsAll, n.states, matrixType, scaleVals, shapeVals, mainEffectVals,rand.var,iter.vals)
-seedVal <- all.parms[i,9]
-set.seed(all.parms[i,9])
+seedVal <- all.parms[tmpIndex,9]
+set.seed(all.parms[tmpIndex,9])
 
+
+for(i in which(all.parms[,9]==seedVal)){
 ## Now declare output file
-out.file <- paste("./data/individualSimsMM_SMM/rowVal_", i, "_seedVal_", seedVal, ".csv", sep='')
+out.file <- paste("./data/individualSimsMM_SMM/rowVal_", runVals, "_seedVal_", seedVal, ".csv", sep='')
 if(!file.exists(out.file)){
   
   ## Load library(s)
@@ -55,7 +53,7 @@ if(!file.exists(out.file)){
     ## Get the prior value we need
     priorValue <- log(tmp.dat$transVals$scale[w])
     newString <- tmp.dat$transVals$coefName[w]
-    newPrior <- prior(normal(QRT,.3), class = "b", coef = XYZ)
+    newPrior <- prior(normal(QRT,.4), class = "b", coef = XYZ)
     ## Now change the values to what we need
     newPrior$prior <- gsub(x = newPrior$prior, replacement = priorValue, pattern = "QRT")
     newPrior$coef <- gsub(x = newPrior$coef, replacement = newString, pattern = "XYZ")
@@ -83,7 +81,7 @@ if(!file.exists(out.file)){
   mePrior$prior <- gsub(x = mePrior$prior, replacement = all.parms[i,6], pattern = "QRT")
   priorVar[which(priorVar$class=="shape"),] <- mePrior
   ## Now do the main effect of interest
-  mePrior <- prior(constant(QRT), class = "b", coef = XYZ)
+  mePrior <- prior(normal(QRT, .4), class = "b", coef = XYZ)
   ## Now change the values to what we need
   mePrior$prior <- gsub(x = mePrior$prior, replacement = all.parms[i,7], pattern = "QRT")
   mePrior$coef <- gsub(x = mePrior$coef, pattern = "XYZ", replacement = "effectOfInt")
@@ -91,20 +89,23 @@ if(!file.exists(out.file)){
   
   ## Now make the four priors we need -- two with frailty terms -- two without
   sampGen <- brm(timeIn ~ -1 + transType + effectOfInt + (-1 + transType|part), data = tmp.dat$sampleData, family = weibull(), 
-                 cores=1, prior = priorVar,sample_prior = "only", seed = 16, iter = 10, chains = 1)
-  tmp.data <- predict(sampGen,newdata = tmp.dat$sampleData ,summary=FALSE, ndraws=4)
-  tmp.dat$sampleData$genVals1 <- tmp.data[1,]
-  tmp.dat$sampleData$genVals2 <- tmp.data[2,]
-  tmp.dat$sampleData$genVals3 <- tmp.data[3,]
-  tmp.dat$sampleData$genVals4 <- tmp.data[4,]
+                 cores=1, prior = priorVar,sample_prior = "only", seed = 16, iter = 250, chains = 1)
+  tmp.data <- predict(sampGen,newdata = tmp.dat$sampleData ,summary=FALSE, ndraws=100)
+  tmp.dat$sampleData$genVals <- NA
+  ## Now grab some values from each of these
+  for(sampleIndiv in 1:unique(tmp.dat$sampleData$part)){
+    ## grab the index values
+    part.count <- which(tmp.dat$sampleData$part==sampleIndiv)
+    tmp.dat$sampleData$genVals[part.count] <- tmp.data[sample(1:100, size = 1),part.count]
+  }
   
   ## SMM no frailty term
-  mod.est1 <- brm(genVals1 ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family = weibull(), cores=1,
+  mod.est1 <- brm(genVals ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family = weibull(), cores=1,
                   control = list(adapt_delta = 0.9, max_treedepth = 12), iter = 5000, init = 2000, thin = 3, chains = 2)
   all.mods[[mod.count]] <- mod.est1
   mod.count <- mod.count + 1
   ## SMM with frailty term
-  mod.est2 <- brm(genVals2 ~ -1  + transType + effectOfInt + (1|part), data = tmp.dat$sampleData, family = weibull(), cores=1,
+  mod.est2 <- brm(genVals ~ -1  + transType + effectOfInt + (1|part), data = tmp.dat$sampleData, family = weibull(), cores=1,
                   control = list(adapt_delta = 0.9, max_treedepth = 12), iter = 5000, init = 2000, thin = 3, chains = 2)
   all.mods[[mod.count]] <- mod.est2
   mod.count <- mod.count + 1
@@ -113,14 +114,14 @@ if(!file.exists(out.file)){
   priorMMShape <- get_prior(genVals1 ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family=weibull())
   priorMMShape[which(priorMMShape$class=="shape"),"prior"] <- "constant(1)"
   ## Now estimate the model -- again MM without frailty
-  mod.est3 <- brm(genVals3 ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family = weibull(), 
+  mod.est3 <- brm(genVals ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family = weibull(), 
                   cores=1,control = list(adapt_delta = 0.9, max_treedepth = 12), prior = priorMMShape, iter = 5000, init = 2000, thin = 3, chains = 2)
   all.mods[[mod.count]] <- mod.est3
   mod.count <- mod.count + 1
   ## Now do MM with frail
   priorMMShape <- get_prior(genVals1 ~ -1  + transType + effectOfInt + (1|part), data = tmp.dat$sampleData, family=weibull())
   priorMMShape[which(priorMMShape$class=="shape"),"prior"] <- "constant(1)"
-  mod.est4 <- brm(genVals4 ~ -1  + transType + effectOfInt + (1|part) , data = tmp.dat$sampleData, family = weibull(), 
+  mod.est4 <- brm(genVals ~ -1  + transType + effectOfInt + (1|part) , data = tmp.dat$sampleData, family = weibull(), 
                   cores=1,control = list(adapt_delta = 0.9, max_treedepth = 12), prior = priorMMShape, iter = 5000, init = 2000, thin = 3, chains = 2)
   all.mods[[mod.count]] <- mod.est4
   mod.count <- mod.count + 1
@@ -167,3 +168,5 @@ if(!file.exists(out.file)){
 }else{
   print("Job done")
 }
+}
+
