@@ -23,7 +23,7 @@ set.seed(all.parms[tmpIndex,9])
 
 for(i in which(all.parms[,9]==seedVal)){
 ## Now declare output file
-out.file <- paste("./data/individualSimsMM_SMM/rowVal_", i, "_seedVal_", seedVal, ".csv", sep='')
+out.file <- paste("./data/individualSimsMM_SMM/rowVal_", i, "_seedVal_", seedVal, ".RDS", sep='')
 if(!file.exists(out.file)){
   
   ## Load library(s)
@@ -73,7 +73,7 @@ if(!file.exists(out.file)){
   mePrior$prior <- gsub(x = mePrior$prior, replacement = all.parms[i,6], pattern = "QRT")
   priorVar[which(priorVar$class=="shape"),] <- mePrior
   ## Now do the main effect of interest
-  mePrior <- prior(student_t(.5, QRT, 12), class = "b", coef = XYZ)
+  mePrior <- prior(normal(QRT, .8), class = "b", coef = XYZ)
   ## Now change the values to what we need
   mePrior$prior <- gsub(x = mePrior$prior, replacement = all.parms[i,7], pattern = "QRT")
   mePrior$coef <- gsub(x = mePrior$coef, pattern = "XYZ", replacement = "effectOfInt")
@@ -81,14 +81,14 @@ if(!file.exists(out.file)){
   
   ## Now make the four priors we need -- two with frailty terms -- two without
   sampGen <- brm(timeIn ~ -1 + transType + effectOfInt, data = tmp.dat$sampleData, family = weibull(), 
-                 cores=1, prior = priorVar,sample_prior = "only", seed = 16, iter = 250, chains = 1)
-  tmp.data <- predict(sampGen,newdata = tmp.dat$sampleData ,summary=FALSE, ndraws=100)
+                 cores=1, prior = priorVar,sample_prior = "only", seed = 16, iter = 500, chains = 1)
+  tmp.data <- predict(sampGen,newdata = tmp.dat$sampleData ,summary=FALSE, ndraws=250)
   tmp.dat$sampleData$genVals <- NA
   ## Now grab some values from each of these
   for(sampleIndiv in unique(tmp.dat$sampleData$part)){
     ## grab the index values
     part.count <- which(tmp.dat$sampleData$part==sampleIndiv)
-    tmp.dat$sampleData$genVals[part.count] <- tmp.data[sample(1:100, size = 1),part.count]
+    tmp.dat$sampleData$genVals[part.count] <- tmp.data[sample(1:250, size = 1),part.count]
   }
   
   ## SMM no frailty term
@@ -119,53 +119,10 @@ if(!file.exists(out.file)){
   mod.count <- mod.count + 1
 
   ## Now prep all of the output
-  all.out <- NULL
-  for(m in 1:length(all.mods)){
-    outFixed <- data.frame(summary(all.mods[[m]])$fixed)
-    outFixed$expEstimate <- NA
-    outFixed$expLower <- NA
-    outFixed$expUpper <- NA
-    ## Put these back in the original units
-    for(r in 1:nrow(outFixed)){
-      outFixed$expEstimate[r] <- sum(outFixed$Estimate[c(r)])
-      outFixed$expLower[r] <-   sum(outFixed$l.95..CI[c(r)])
-      outFixed$expUpper[r] <-   sum(outFixed$u.95..CI[c(r)])
-    }
-    ## Now prepare all output
-    # out2 <- data.frame(transType=c(rownames(outFixed)), paramEst = NA, lowerEst = NA, upperEst = NA,
-    #                    randVar = all.parms[i,8], rowAllParam = i, n = all.parms[i,1], minObs = all.parms[i,2],
-    #                    nState = all.parms[i,3], matrixType = all.parms[i,4], scaleRange = all.parms[i,5], shapeVal = all.parms[i,6],
-    #                    mainEffectMag = all.parms[i,7],seedVal = all.parms[i,9], modCount = m)
-    outFixed$randVar <- all.parms[i,8]
-    outFixed$n <- all.parms[i,8]
-    outFixed$minObs = all.parms[i,2]
-    outFixed$nState <- all.parms[i,3]
-    outFixed$matrixType <- all.parms[i,4]
-    outFixed$scaleRange <- all.parms[i,5]
-    outFixed$shapeVal <- all.parms[i,6]
-    outFixed$mainEffectMag <- all.parms[i,7]
-    outFixed$seedVal <- all.parms[i,9]
-    outFixed$modCount <- m
-    outFixed$rowAllParm <- i
-    outFixed$transType <- rownames(outFixed)
-    ## Now add the shape value
-    out2Shape <- outFixed[1,]
-    out2Shape$transType <- "shapeParam"
-    shapeEst <- summary(all.mods[[m]])$spec_pars 
-    out2Shape$Estimate <- shapeEst[,1]
-    out2Shape$'l.95..CI' <- shapeEst[,3]
-    out2Shape$'u.95..CI' <- shapeEst[,4]
-    out2 <- rbind(outFixed, out2Shape)
-    ## Now see if we have a random effect and add this to the parameter estimates
-    all.out <- rbind(all.out, out2)
-  }
-  ## Now attach the real values
-  real.vals <- tmp.dat$transVals
-  real.vals$transType <- paste("transType", real.vals$Var1, real.vals$Var2, sep='')
-  real.vals <- real.vals[,c("transType", "scale")]
-  all.out <- merge(all.out, real.vals, by=c("transType"), all.x=TRUE, suffixes = c("", "_True"))
+  all.out <- lapply(all.mods, summary)
   ## Now write all.out
-  write.csv(all.out, file = out.file, quote = FALSE, row.names = FALSE)
+  saveRDS(all.out, file = out.file)
+  
 }else{
   print("Job done")
 }
