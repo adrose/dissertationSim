@@ -73,7 +73,7 @@ if(!file.exists(out.file)){
   mePrior$prior <- gsub(x = mePrior$prior, replacement = all.parms[i,6], pattern = "QRT")
   priorVar[which(priorVar$class=="shape"),] <- mePrior
   ## Now do the main effect of interest
-  mePrior <- prior(normal(QRT, .5), class = "b", coef = XYZ)
+  mePrior <- prior(student_t(.5, QRT, 12), class = "b", coef = XYZ)
   ## Now change the values to what we need
   mePrior$prior <- gsub(x = mePrior$prior, replacement = all.parms[i,7], pattern = "QRT")
   mePrior$coef <- gsub(x = mePrior$coef, pattern = "XYZ", replacement = "effectOfInt")
@@ -132,21 +132,30 @@ if(!file.exists(out.file)){
       outFixed$expUpper[r] <-   sum(outFixed$u.95..CI[c(r)])
     }
     ## Now prepare all output
-    out2 <- data.frame(transType=c(rownames(outFixed)), paramEst = NA, lowerEst = NA, upperEst = NA,
-                       randVar = all.parms[i,8], rowAllParam = i, n = all.parms[i,1], minObs = all.parms[i,2],
-                       nState = all.parms[i,3], matrixType = all.parms[i,4], scaleRange = all.parms[i,5], shapeVal = all.parms[i,6],
-                       mainEffectMag = all.parms[i,7],seedVal = all.parms[i,9], modCount = m)
-    out2$paramEst <- outFixed[out2$transType,"expEstimate"]
-    out2$lowerEst <- outFixed[out2$transType,"expLower"]
-    out2$upperEst <- outFixed[out2$transType,"expUpper"]
+    # out2 <- data.frame(transType=c(rownames(outFixed)), paramEst = NA, lowerEst = NA, upperEst = NA,
+    #                    randVar = all.parms[i,8], rowAllParam = i, n = all.parms[i,1], minObs = all.parms[i,2],
+    #                    nState = all.parms[i,3], matrixType = all.parms[i,4], scaleRange = all.parms[i,5], shapeVal = all.parms[i,6],
+    #                    mainEffectMag = all.parms[i,7],seedVal = all.parms[i,9], modCount = m)
+    outFixed$randVar <- all.parms[i,8]
+    outFixed$n <- all.parms[i,8]
+    outFixed$minObs = all.parms[i,2]
+    outFixed$nState <- all.parms[i,3]
+    outFixed$matrixType <- all.parms[i,4]
+    outFixed$scaleRange <- all.parms[i,5]
+    outFixed$shapeVal <- all.parms[i,6]
+    outFixed$mainEffectMag <- all.parms[i,7]
+    outFixed$seedVal <- all.parms[i,9]
+    outFixed$modCount <- m
+    outFixed$rowAllParm <- i
+    outFixed$transType <- rownames(outFixed)
     ## Now add the shape value
-    out2Shape <- out2[1,]
+    out2Shape <- outFixed[1,]
     out2Shape$transType <- "shapeParam"
     shapeEst <- summary(all.mods[[m]])$spec_pars 
-    out2Shape$paramEst <- shapeEst[,1]
-    out2Shape$lowerEst <- shapeEst$`l-95% CI`
-    out2Shape$upperEst <- shapeEst$`u-95% CI`
-    out2 <- rbind(out2, out2Shape)
+    out2Shape$Estimate <- shapeEst[,1]
+    out2Shape$'l.95..CI' <- shapeEst[,3]
+    out2Shape$'u.95..CI' <- shapeEst[,4]
+    out2 <- rbind(outFixed, out2Shape)
     ## Now see if we have a random effect and add this to the parameter estimates
     all.out <- rbind(all.out, out2)
   }
