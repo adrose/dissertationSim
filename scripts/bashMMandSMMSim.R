@@ -17,7 +17,7 @@ mainEffectVals <- c(0,.2,.4)
 rand.var <- c(0,.6,1)
 iter.vals <- 1:300
 all.parms <- expand.grid(n, minObsAll, n.states, matrixType, scaleVals, shapeVals, mainEffectVals,rand.var,iter.vals)
-seedVal <- all.parms[tmpIndex,9]
+seedVal <- tmpIndex
 set.seed(all.parms[tmpIndex,9])
 
 
