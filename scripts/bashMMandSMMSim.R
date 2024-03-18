@@ -44,7 +44,7 @@ if(!file.exists(out.file)){
   ## Modify the transTYpe values to reflect the model names
   tmp.dat$transVals$coefName <- paste("transType", gsub(x = tmp.dat$transVals$transType, pattern=" ", replacement=""), sep='')
   ## First get the priors of interest
-  priorVar <- get_prior(timeIn ~ -1 + transType + effectOfInt + (-1 + transType|part), data = tmp.dat$sampleData, family=weibull())
+  priorVar <- get_prior(timeIn ~ -1 + transType + effectOfInt, data = tmp.dat$sampleData, family=weibull())
   ## Now fix the priors here
   ## Use the weibull parameters from the tmp.dat$transVals
   for(w in 1:nrow(tmp.dat$transVals)){
@@ -53,24 +53,16 @@ if(!file.exists(out.file)){
     ## Get the prior value we need
     priorValue <- log(tmp.dat$transVals$scale[w])
     newString <- tmp.dat$transVals$coefName[w]
-    newPrior <- prior(normal(QRT,.6), class = "b", coef = XYZ)
+    randVarVal <- all.parms[i,8]
+    if(randVarVal == 0){
+      randVarVal <- .1
+    }
+    newPrior <- prior(normal(QRT,ABC), class = "b", coef = XYZ)
     ## Now change the values to what we need
     newPrior$prior <- gsub(x = newPrior$prior, replacement = priorValue, pattern = "QRT")
+    newPrior$prior <- gsub(x = newPrior$prior, replacement = randVarVal, pattern = "ABC")
     newPrior$coef <- gsub(x = newPrior$coef, replacement = newString, pattern = "XYZ")
-    ## Now put this back into the priorVar
-    priorVar[modIndex,] <- newPrior
-  }
-  ## Now do the same for the random effect
-  for(w in 1:nrow(tmp.dat$transVals)){
-    ## First identify the true value from the simulated data
-    modIndex <- which(tmp.dat$transVals$coefName[w] == priorVar$coef & priorVar$class=="sd")
-    ## Get the prior value we need
-    priorValue <- all.parms[i,8]
-    newString <- tmp.dat$transVals$coefName[w]
-    newPrior <- prior(constant(QRT), class = "sd", coef = XYZ, group=part)
-    ## Now change the values to what we need
-    newPrior$prior <- gsub(x = newPrior$prior, replacement = priorValue, pattern = "QRT")
-    newPrior$coef <- gsub(x = newPrior$coef, replacement = newString, pattern = "XYZ")
+    
     ## Now put this back into the priorVar
     priorVar[modIndex,] <- newPrior
   }
@@ -88,7 +80,7 @@ if(!file.exists(out.file)){
   priorVar[which(priorVar$coef=="effectOfInt"),] <- mePrior
   
   ## Now make the four priors we need -- two with frailty terms -- two without
-  sampGen <- brm(timeIn ~ -1 + transType + effectOfInt + (-1 + transType|part), data = tmp.dat$sampleData, family = weibull(), 
+  sampGen <- brm(timeIn ~ -1 + transType + effectOfInt, data = tmp.dat$sampleData, family = weibull(), 
                  cores=1, prior = priorVar,sample_prior = "only", seed = 16, iter = 250, chains = 1)
   tmp.data <- predict(sampGen,newdata = tmp.dat$sampleData ,summary=FALSE, ndraws=100)
   tmp.dat$sampleData$genVals <- NA
