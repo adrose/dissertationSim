@@ -5,22 +5,21 @@
 ###  `maximal number of DLLs reached...
 
 ## First identify the row of the simulation we want to run
-tmpIndex=as.numeric(commandArgs(TRUE)[1])
+seedVal=as.numeric(commandArgs(TRUE)[1])
 n <- c(20, 100)
 minObsAll <- c(20, 40)
-n.states <- c(3, 4)
+n.states <- c(3)
 matrixType <- c("mod", "rand")
 scaleVals <- c(".5:5","10:15")
 shapeVals <- c(.3, 1, 5)
 mainEffectVals <- c(0,.5,1)
 rand.var <- c(0,.6,1)
-iter.vals <- 1:30
+iter.vals <- 1:300
 all.parms <- expand.grid(n, minObsAll, n.states, matrixType, scaleVals, shapeVals, mainEffectVals,rand.var,iter.vals)
-seedVal <- tmpIndex
-set.seed(all.parms[tmpIndex,9])
+set.seed(seedVal)
 
 
-for(i in which(all.parms[,9]==seedVal)){
+for(i in sample(which(all.parms[,9]==seedVal), replace = FALSE)){
   ## Now declare output file
   out.file <- paste("./data/individualSimsMM_SMM/seedVal_", seedVal,"/rowVal_",i, "_seedVal_", seedVal, ".RDS", sep='')
   out.dir <- paste("./data/individualSimsMM_SMM/seedVal_", seedVal,sep='')
