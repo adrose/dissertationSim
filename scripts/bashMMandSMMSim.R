@@ -10,19 +10,19 @@ n <- c(20, 100)
 minObsAll <- c(20, 40)
 n.states <- c(3)
 matrixType <- c("mod", "rand")
-scaleVals <- c(".5:5","10:15")
+scaleVals <- c(".5:8","8:16")
 shapeVals <- c(.3, 1, 5)
 mainEffectVals <- c(0,.5,1)
 rand.var <- c(0,.6,1)
-iter.vals <- 1:300
+iter.vals <- 1:1000
 all.parms <- expand.grid(n, minObsAll, n.states, matrixType, scaleVals, shapeVals, mainEffectVals,rand.var,iter.vals)
 set.seed(seedVal)
 
 
 for(i in sample(which(all.parms[,9]==seedVal), replace = FALSE)){
   ## Now declare output file
-  out.file <- paste("./data/individualSimsMM_SMM/seedVal_", seedVal,"/rowVal_",i, "_seedVal_", seedVal, ".RDS", sep='')
-  out.dir <- paste("./data/individualSimsMM_SMM/seedVal_", seedVal,sep='')
+  out.file <- paste("./data/individualSimsMM_SMM-3/seedVal_", seedVal,"/rowVal_",i, "_seedVal_", seedVal, ".RDS", sep='')
+  out.dir <- paste("./data/individualSimsMM_SMM-3/seedVal_", seedVal,sep='')
   if(!dir.exists(out.dir)){
     dir.create(out.dir)
     print("make dir")
@@ -43,7 +43,19 @@ for(i in sample(which(all.parms[,9]==seedVal), replace = FALSE)){
     all.mods <- list()
     mod.count <- 1
     tmp.dat <- simFunc(n = all.parms[i,1], minObs = all.parms[i,2],maxObs = all.parms[i,2]*2,nState = all.parms[i,3], 
-                       matrixType = all.parms[i,4], scaleRange = all.parms[i,5], shapeVal = all.parms[i,6], meMag = all.parms[i,7])
+                       matrixType = all.parms[i,4], scaleRange = all.parms[i,5], shapeVal = all.parms[i,6], meMag = all.parms[i,7], addLag = FALSE)
+    if(sum(is.na(tmp.dat$sampleData$timeIn))>0){
+      sum.check <- TRUE
+      while(sum(is.na(tmp.dat$sampleData$timeIn))>0){
+        tmp.dat <- simFunc(n = all.parms[i,1], minObs = all.parms[i,2],maxObs = all.parms[i,2]*2,nState = all.parms[i,3], 
+                           matrixType = all.parms[i,4], scaleRange = all.parms[i,5], shapeVal = all.parms[i,6], meMag = all.parms[i,7], addLag = FALSE)
+        if(sum(is.na(tmp.dat$sampleData$timeIn))==0){
+          sum.check <- FALSE
+        }
+        print("sumCheck")
+      }
+      
+    }
     ## Modify the transTYpe values to reflect the model names
     tmp.dat$transVals$coefName <- paste("transType", gsub(x = tmp.dat$transVals$transType, pattern=" ", replacement=""), sep='')
     ## First get the priors of interest
@@ -51,7 +63,7 @@ for(i in sample(which(all.parms[,9]==seedVal), replace = FALSE)){
     ## Now fix the priors here
     ## Use the weibull parameters from the tmp.dat$transVals
     for(w in 1:nrow(tmp.dat$transVals)){
-      ## First idenitfy the true value from the simulated data
+      ## First identify the true value from the simulated data
       modIndex <- which(tmp.dat$transVals$coefName[w] == priorVar$coef & priorVar$class=="b")
       ## Get the prior value we need
       priorValue <- log(tmp.dat$transVals$scale[w])
@@ -76,7 +88,7 @@ for(i in sample(which(all.parms[,9]==seedVal), replace = FALSE)){
     mePrior$prior <- gsub(x = mePrior$prior, replacement = all.parms[i,6], pattern = "QRT")
     priorVar[which(priorVar$class=="shape"),] <- mePrior
     ## Now do the main effect of interest
-    mePrior <- prior(normal(QRT, 1), class = "b", coef = XYZ)
+    mePrior <- prior(normal(QRT, .3), class = "b", coef = XYZ)
     ## Now change the values to what we need
     mePrior$prior <- gsub(x = mePrior$prior, replacement = all.parms[i,7], pattern = "QRT")
     mePrior$coef <- gsub(x = mePrior$coef, pattern = "XYZ", replacement = "effectOfInt")
@@ -93,34 +105,31 @@ for(i in sample(which(all.parms[,9]==seedVal), replace = FALSE)){
       part.count <- which(tmp.dat$sampleData$part==sampleIndiv)
       tmp.dat$sampleData$genVals[part.count] <- tmp.data[sample(1:250, size = 1),part.count]
     }
-    
+    ## Now modify the trans type to ignore the lagged influence
+    tmp.dat$sampleData$transType1 <- paste(tmp.dat$sampleData$stateFrom, tmp.dat$sampleData$stateTo)
     ## SMM no frailty term
-    mod.est1 <- brm(genVals ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family = weibull(), cores=1,
+    mod.est1 <- brm(genVals ~ -1  + transType1 + effectOfInt, data = tmp.dat$sampleData, family = weibull(), cores=1,
                     control = list(adapt_delta = 0.9, max_treedepth = 12), iter = 5000, init = 2000, thin = 3, chains = 2)
     all.mods[[mod.count]] <- mod.est1
     mod.count <- mod.count + 1
     ## SMM with frailty term
-    mod.est2 <- brm(genVals ~ -1  + transType + effectOfInt + (transType|part), data = tmp.dat$sampleData, family = weibull(), cores=1,
+    mod.est2 <- brm(genVals ~ -1  + transType1 + effectOfInt + (1|part), data = tmp.dat$sampleData, family = weibull(), cores=1,
                     control = list(adapt_delta = 0.9, max_treedepth = 12), iter = 5000, init = 2000, thin = 3, chains = 2)
     all.mods[[mod.count]] <- mod.est2
     mod.count <- mod.count + 1
     ## Now do the markov model terms here
-    ## Constrain the prior to be 1 for the shape term
-    priorMMShape <- get_prior(genVals ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family=weibull())
-    priorMMShape[which(priorMMShape$class=="shape"),"prior"] <- "constant(1)"
-    ## Now estimate the model -- again MM without frailty
-    mod.est3 <- brm(genVals ~ -1  + transType + effectOfInt, data = tmp.dat$sampleData, family = weibull(), 
-                    cores=1,control = list(adapt_delta = 0.9, max_treedepth = 12), prior = priorMMShape, iter = 5000, init = 2000, thin = 3, chains = 2)
+    mod.est3 <- brm(genVals ~ -1  + transType1 + effectOfInt, data = tmp.dat$sampleData, family = brmsfamily("exponential"),
+                    cores=1,control = list(adapt_delta = 0.9, max_treedepth = 12), iter = 5000, init = 2000, thin = 3, chains = 2)
     all.mods[[mod.count]] <- mod.est3
     mod.count <- mod.count + 1
     ## Now do MM with frail
-    priorMMShape <- get_prior(genVals ~ -1  + transType + effectOfInt + (transType|part), data = tmp.dat$sampleData, family=weibull())
-    priorMMShape[which(priorMMShape$class=="shape"),"prior"] <- "constant(1)"
-    mod.est4 <- brm(genVals ~ -1  + transType + effectOfInt + (transType|part) , data = tmp.dat$sampleData, family = weibull(), 
-                    cores=1,control = list(adapt_delta = 0.9, max_treedepth = 12), prior = priorMMShape, iter = 5000, init = 2000, thin = 3, chains = 2)
+    mod.est4 <- brm(genVals ~ -1  + transType1 + effectOfInt + (1|part) , data = tmp.dat$sampleData, family = brmsfamily("exponential"), 
+                    cores=1,control = list(adapt_delta = 0.9, max_treedepth = 12), iter = 5000, init = 2000, thin = 3, chains = 2)
     all.mods[[mod.count]] <- mod.est4
     mod.count <- mod.count + 1
     
+    ## Now do the priors
+    all.mods[[mod.count]]  <- priorVar
     ## Now prep all of the output
     all.out <- lapply(all.mods, summary)
     ## Now write all.out

@@ -255,14 +255,14 @@ retSampPriors <- function(fixEfModel, modShape = 1.6, groupName = "part", ranVar
 
 ## Now create a function which will run through a set of these params and estimate everything we need
 simFunc <- function(n=10,minObs=20, maxObs=90, nState=3, 
-                    matrixType="stable", scaleRange="2:6", shapeVal=1.6, meMag = NULL){
+                    matrixType="stable", scaleRange="2:6", shapeVal=1.6, meMag = NULL, addLag = FALSE){
   ## First load all required packages
   source("./scripts/weiFuncs.R")
   ## Now create our data
   # first create our number of sample vectors
   obsPat <- sample(minObs:maxObs, size = n,replace = TRUE)
   ## Now create a data frame to house all of our variables
-  samp.dat <- data.frame(part = rep(1:n, times = obsPat), order = NA,timeIn = NA,stateFrom = NA,stateTo=NA)
+  samp.dat <- data.frame(part = rep(1:n, times = obsPat), order = NA,timeIn = NA,stateFrom = NA,stateTo=NA, stateFrom2=NA, stateFrom3=NA)
   ## Check for ME value
   if(!is.null(meMag)){
     samp.dat$effectOfInt <- rep(rnorm(n), times = obsPat)
@@ -274,6 +274,9 @@ simFunc <- function(n=10,minObs=20, maxObs=90, nState=3,
     samp.dat[which(samp.dat$part==i),"stateTo"] <- run.mc.sim(discreteMMVals, num.iters = obsPat[i])
     ## Now identify our lagged pattern
     samp.dat[which(samp.dat$part==i),"stateFrom"] <- dplyr::lag(samp.dat[which(samp.dat$part==i),"stateTo"])
+    samp.dat[which(samp.dat$part==i),"stateFrom2"] <- dplyr::lag(samp.dat[which(samp.dat$part==i),"stateTo"], n = 2)
+    samp.dat[which(samp.dat$part==i),"stateFrom3"] <- dplyr::lag(samp.dat[which(samp.dat$part==i),"stateTo"], n = 3)
+    
     ## Now fix the NA value
     samp.dat[which(samp.dat$part==i)[1],"stateFrom"] <- sample(1:nState, size = 1)
     ## Now fix the order variable
@@ -283,8 +286,14 @@ simFunc <- function(n=10,minObs=20, maxObs=90, nState=3,
   samp.dat$transType <- paste(samp.dat$stateFrom, samp.dat$stateTo)
   
   ## Now create our transition type values
-  ntrans <- expand.grid(1:nState, 1:nState)
-  ntrans$transType <- paste(ntrans[,1], ntrans[,2])
+  if(addLag){
+    ntrans <- expand.grid(1:nState, 1:nState, 1:nState)
+    ntrans$transType <- paste(ntrans[,1], ntrans[,2], ntrans[,3])
+    samp.dat$transType <- paste(samp.dat$stateFrom2, samp.dat$stateFrom, samp.dat$stateTo)
+  }else{
+    ntrans <- expand.grid(1:nState, 1:nState)
+    ntrans$transType <- paste(ntrans[,1], ntrans[,2])
+  }
   ## Now create a shape and scale variable for each of these
   shape.val <- shapeVal
   scaleMin <- as.numeric(strSplitMatrixReturn(charactersToSplit = scaleRange, ":")[,1])
