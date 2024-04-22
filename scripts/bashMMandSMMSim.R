@@ -6,14 +6,14 @@
 
 ## First identify the row of the simulation we want to run
 seedVal=as.numeric(commandArgs(TRUE)[1])
-n <- c(20, 100)
-minObsAll <- c(20, 40)
+n <- c(10, 100)
+minObsAll <- c(10, 40)
 n.states <- c(3)
 matrixType <- c("mod", "rand")
-scaleVals <- c(".5:8","8:16")
-shapeVals <- c(1, 5)
-mainEffectVals <- c(0,.6)
-rand.var <- c(0.1,3)
+scaleVals <- c(".5:8","15:25")
+shapeVals <- c(1, 7)
+mainEffectVals <- c(0,2)
+rand.var <- c(0.1,4)
 iter.vals <- 1:1000
 all.parms <- expand.grid(n, minObsAll, n.states, matrixType, scaleVals, shapeVals, mainEffectVals,rand.var,iter.vals)
 set.seed(seedVal)
