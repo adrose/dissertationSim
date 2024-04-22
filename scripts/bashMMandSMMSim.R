@@ -11,9 +11,9 @@ minObsAll <- c(20, 40)
 n.states <- c(3)
 matrixType <- c("mod", "rand")
 scaleVals <- c(".5:8","8:16")
-shapeVals <- c(.3, 1, 5)
-mainEffectVals <- c(0,.5,1)
-rand.var <- c(0,.6,1)
+shapeVals <- c(1, 5)
+mainEffectVals <- c(0,.6)
+rand.var <- c(0.1,3)
 iter.vals <- 1:1000
 all.parms <- expand.grid(n, minObsAll, n.states, matrixType, scaleVals, shapeVals, mainEffectVals,rand.var,iter.vals)
 set.seed(seedVal)
@@ -59,7 +59,7 @@ for(i in sample(which(all.parms[,9]==seedVal), replace = FALSE)){
     ## Modify the transTYpe values to reflect the model names
     tmp.dat$transVals$coefName <- paste("transType", gsub(x = tmp.dat$transVals$transType, pattern=" ", replacement=""), sep='')
     ## First get the priors of interest
-    priorVar <- get_prior(timeIn ~ -1 + transType + effectOfInt, data = tmp.dat$sampleData, family=weibull())
+    priorVar <- get_prior(timeIn ~ -1 + transType + effectOfInt + (1|part), data = tmp.dat$sampleData, family=weibull())
     ## Now fix the priors here
     ## Use the weibull parameters from the tmp.dat$transVals
     for(w in 1:nrow(tmp.dat$transVals)){
@@ -72,7 +72,10 @@ for(i in sample(which(all.parms[,9]==seedVal), replace = FALSE)){
       if(randVarVal == 0){
         randVarVal <- .1
       }
-      newPrior <- prior(normal(QRT,ABC), class = "b", coef = XYZ)
+      if(randVarVal == 1){
+        randVarVal <- 3
+      }
+      newPrior <- prior(normal(QRT,.3), class = "b", coef = XYZ)
       ## Now change the values to what we need
       newPrior$prior <- gsub(x = newPrior$prior, replacement = priorValue, pattern = "QRT")
       newPrior$prior <- gsub(x = newPrior$prior, replacement = randVarVal, pattern = "ABC")
@@ -88,14 +91,18 @@ for(i in sample(which(all.parms[,9]==seedVal), replace = FALSE)){
     mePrior$prior <- gsub(x = mePrior$prior, replacement = all.parms[i,6], pattern = "QRT")
     priorVar[which(priorVar$class=="shape"),] <- mePrior
     ## Now do the main effect of interest
-    mePrior <- prior(normal(QRT, .3), class = "b", coef = XYZ)
+    mePrior <- prior(normal(QRT,.4), class = "b", coef = XYZ)
     ## Now change the values to what we need
     mePrior$prior <- gsub(x = mePrior$prior, replacement = all.parms[i,7], pattern = "QRT")
     mePrior$coef <- gsub(x = mePrior$coef, pattern = "XYZ", replacement = "effectOfInt")
     priorVar[which(priorVar$coef=="effectOfInt"),] <- mePrior
+    ## Now do the random intercept
+    randEfInt <- prior(constant(QRT), class="sd", coef="Intercept", group="part")
+    randEfInt$prior <- gsub(x = randEfInt$prior, replacement = all.parms[i,8], pattern = "QRT")
+    priorVar[which(priorVar$group=="part" & priorVar$coef=="Intercept"),] <- randEfInt 
     
     ## Now make the four priors we need -- two with frailty terms -- two without
-    sampGen <- brm(timeIn ~ -1 + transType + effectOfInt, data = tmp.dat$sampleData, family = weibull(), 
+    sampGen <- brm(timeIn ~ -1 + transType + effectOfInt + (1|part), data = tmp.dat$sampleData, family = weibull(), 
                    cores=1, prior = priorVar,sample_prior = "only", seed = 16, iter = 500, chains = 1)
     tmp.data <- predict(sampGen,newdata = tmp.dat$sampleData ,summary=FALSE, ndraws=250)
     tmp.dat$sampleData$genVals <- NA
@@ -130,8 +137,6 @@ for(i in sample(which(all.parms[,9]==seedVal), replace = FALSE)){
     
     ## Now do the priors
     all.mods[[mod.count]]  <- priorVar
-    ## Now prep all of the output
-    all.out <- lapply(all.mods, summary)
     ## Now write all.out
     saveRDS(all.out, file = out.file)
     
