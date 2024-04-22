@@ -138,7 +138,7 @@ for(i in sample(which(all.parms[,9]==seedVal), replace = FALSE)){
     ## Now do the priors
     all.mods[[mod.count]]  <- priorVar
     ## Now write all.out
-    saveRDS(all.out, file = out.file)
+    saveRDS(all.mods, file = out.file)
     
   }else{
     print("Job done")
