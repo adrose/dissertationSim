@@ -2,9 +2,6 @@
 library(brms)
 library(doParallel)
 library(tidyverse)
-library(visreg)
-source("~/GitHub/adroseHelperScripts/R/afgrHelpFunc.R")
-source("./scripts/weiFuncs.R")
 
 ## CP all data over from schooner
 #system("rsync -au --info=progress2 arosen@schooner.oscer.ou.edu:/scratch/arosen/dissertationSim/data/individualSimsMM_SMM/ /home/arosen/Documents/dissertationSim/data/individualSimsMM_SMM/")
