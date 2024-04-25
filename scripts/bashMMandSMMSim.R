@@ -145,3 +145,27 @@ for(i in sample(which(all.parms[,9]==seedVal), replace = FALSE)){
   }
 }
 
+source("~/GitHub/adroseHelperScripts/R/afgrHelpFunc.R")
+target <- NULL
+for(i in which(all.parms[,9]==seedVal)){
+  ## Now declare output file
+  in.file <- paste("./data/individualSimsMM_SMM-3/seedVal_", seedVal,"/rowVal_",i, "_seedVal_", seedVal, ".RDS", sep='')
+  ## Now go through all of these and store the data in a single RDS file after running summary on the models
+  tmp.in <- readRDS(in.file)
+  ## First grab the shape parameters that were estimated
+  tmp.in1 <- dplyr::bind_rows(lapply(tmp.in[1:2], function(x) summary(x)$spec_pars))
+  tmp.in <- dplyr::bind_rows(lapply(tmp.in[1:4], function(x) summary(x)$fixed["effectOfInt",]))
+  ## Now find the correct anova params
+  rowVals <-  strSplitMatrixReturn(basename(in.file), "_")[,2]
+  tmp.in <- dplyr::bind_cols(tmp.in, all.parms[rowVals,])
+  tmp.in$modCount <- 1:4
+  tmp.in$shapeEst <- c(tmp.in1$Estimate, 1, 1)
+  tmp.in$shapeEstLC <- c(tmp.in1$`l-95% CI`, 0, 0)
+  tmp.in$shapeEstUC <- c(tmp.in1$`u-95% CI`, 0, 0)
+  ## Return these values
+  target <- rbind(target, tmp.in)
+}
+# now write all of this 
+out.dir <- paste("./data/individualSimsMM_SMM-3/seedVal_", seedVal,sep='')
+out.file <- paste(out.dir, "/outModelSummary_", i, ".RDS", sep='')
+saveRDS(object = target, file =  out.file)
