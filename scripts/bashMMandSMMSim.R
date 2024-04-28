@@ -147,6 +147,11 @@ for(i in sample(which(all.parms[,9]==seedVal), replace = FALSE)){
 
 source("~/GitHub/adroseHelperScripts/R/afgrHelpFunc.R")
 target <- NULL
+# now write all of this 
+i <- max(which(all.parms[,9]==seedVal))
+out.dir <- paste("./data/individualSimsMM_SMM-3/",sep='')
+out.file <- paste(out.dir, "outModelSummary_", i, ".RDS", sep='')
+if(!file.exists(out.file)){
 for(i in which(all.parms[,9]==seedVal)){
   ## Now declare output file
   in.file <- paste("./data/individualSimsMM_SMM-3/seedVal_", seedVal,"/rowVal_",i, "_seedVal_", seedVal, ".RDS", sep='')
@@ -165,7 +170,5 @@ for(i in which(all.parms[,9]==seedVal)){
   ## Return these values
   target <- rbind(target, tmp.in)
 }
-# now write all of this 
-out.dir <- paste("./data/individualSimsMM_SMM-3/seedVal_", seedVal,sep='')
-out.file <- paste(out.dir, "/outModelSummary_", i, ".RDS", sep='')
 saveRDS(object = target, file =  out.file)
+}
